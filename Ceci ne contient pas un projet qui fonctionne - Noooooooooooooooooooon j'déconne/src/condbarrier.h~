@@ -1,0 +1,21 @@
+#ifndef BARC_H
+#define BARC_H
+
+#include <stdlib.h>
+#include <pthread.h>
+#include <stdio.h>
+
+typedef struct Barrier {
+  	int count;
+	int limit;
+	pthread_cond_t cond;
+	pthread_mutex_t mutex;
+} Barrier;
+
+/** Barrier actions */
+Barrier * my_barr_init(int limit);
+void my_barr_wait(Barrier * b);
+void my_barr_destroy(Barrier * b);
+void print_barrier(Barrier * b, char * name);
+
+#endif // BARC_H

@@ -1,0 +1,163 @@
+/**
+ * @authors: BUISSON Kévin & ROLLIN Antoine
+ */
+
+#include "version1.h"
+
+#include <unistd.h>
+
+// POSIX Barrier
+pthread_barrier_t barr;
+
+/**
+ * Divides in regions and initializes barrier 
+ */
+void main_v1(int n_iter, Matrix * matrix_src, Matrix * matrix_dst, int n_threads){
+
+    // Compute regions for threads
+    Region ** regions = generate_regions(n_threads, matrix_src->size);
+
+    // Init horizontal barrier : left when n_threads are waiting
+    pthread_barrier_init(&barr, NULL, (n_threads+1));
+
+    // Launch process
+    process_v1(matrix_src, matrix_dst, regions, n_threads, n_iter);
+
+    // Destroying barriers
+    pthread_barrier_destroy(&barr);
+}
+
+/**
+ * Apply one iteration process.
+ */
+void process_v1(Matrix* matrix_src, Matrix* matrix_dst, Region ** r_list, int n_threads, int n_iter) {
+
+    pthread_t t[n_threads];
+
+    Argument ** args = malloc(n_threads * sizeof(Argument));
+
+    // Launch threads
+    for (int i = 0; i < n_threads; i++){
+        Argument * a = create_arg(matrix_src, matrix_dst, r_list[i], n_iter);
+        args[i] = a;
+        pthread_create(&t[i], NULL, thread_func, &args[i]);
+
+    }
+
+    // Process iterations
+    for (int k = 1; k <= n_iter; k++)
+    {
+        // Vertical thread treatments 
+        pthread_barrier_wait(&barr);
+        
+	// Horizontal thread treatments
+        pthread_barrier_wait(&barr);
+
+        // Heat the center
+        apply_heat_center(matrix_src, TEMP_HOT);
+
+	// Unlocking threads
+        pthread_barrier_wait(&barr);
+
+    }
+}
+
+/**
+ * Apply one iteration process on the destination matrix according to
+ * the source matrix and the direction (horizontally or vertically).
+ */
+void directed_process_v1(Matrix* matrix_src, Matrix* matrix_dst, int direction, Region * region) {
+    
+    int variant = (direction == VERTICAL) ? region->x : region->y;
+
+    // Process each line OR column of the region
+    for(int i = variant; i < (variant + region->width); i++)
+        compute_line_or_column_at_index_v1(matrix_src, matrix_dst, direction, i, region);
+
+}
+
+/**
+ *  Process the index-ieme line/column (direction) on a region.
+ */
+void compute_line_or_column_at_index_v1(Matrix* matrix_src, Matrix* matrix_dst, int direction, int index, Region * region) {
+    // Cells required for Taylor formula
+    float aim, adj1, adj2;
+
+    int variant2 = (direction == VERTICAL) ? region->y : region->x;
+
+    // For each cell of the line/column
+    for (int mutant = variant2; mutant < (variant2 + region->width); mutant++) {
+        if (direction == VERTICAL){ // COLUMN
+            // Previous aimed cell value
+            aim = MCELL(matrix_src, index, mutant);
+
+            // Neighbors values
+            adj1 = (mutant >= 1) ? MCELL(matrix_src, index, (mutant-1)) : 0;
+            adj2 = (mutant < matrix_dst->size-1) ? MCELL(matrix_src, index, (mutant+1)) : 0;
+
+            // Computes the new value
+            MCELL(matrix_dst, index, mutant) = apply_taylor(aim, adj1, adj2);
+
+        } else if (direction == HORIZONTAL) { // LINE
+            // Previous aimed cell value
+            aim = MCELL(matrix_src, mutant, index);
+
+            // Neighbors values
+            adj1 = (mutant >= 1) ? MCELL(matrix_src, (mutant-1), index) : 0;
+            adj2 = (mutant < matrix_dst->size-1) ? MCELL(matrix_src, (mutant+1), index) : 0;
+
+            // Computes the new value
+            MCELL(matrix_dst, mutant, index) = apply_taylor(aim, adj1, adj2);
+        }
+    }
+}
+
+/**
+ * Allocates and creates a thread argument.
+ */ 
+Argument * create_arg(Matrix * m1, Matrix * m2, Region * r, int n_iter) {
+    Argument * a = malloc(sizeof(Argument));
+
+    a->m1 = m1;
+    a->m2 = m2;
+    a->reg = r;
+    a->n_iter = n_iter;
+
+    return a;
+}
+
+/**
+ * Free argument
+ */
+void free_arg(Argument * arg) {
+    free(arg->reg);
+    free(arg);
+}
+
+/**
+ * Thread code.
+ */
+void * thread_func (void * p) {
+    Argument * a = *(Argument * *) p;
+
+    // Process iterations
+    for (int k = 1; k <= a->n_iter; k++)
+    {
+        // Apply the process vertically
+        directed_process_v1(a->m1, a->m2, VERTICAL, a->reg);
+
+	// Unlock others threads chen everyone has done the vertical process
+        pthread_barrier_wait(&barr);
+
+        // Apply the process horizontally
+        directed_process_v1(a->m2, a->m1, HORIZONTAL, a->reg);
+
+	// Unlock others threads chen everyone has done the horizontal process
+        pthread_barrier_wait(&barr);
+
+	// Waiting for the matrix to be heated
+        pthread_barrier_wait(&barr);
+    }
+
+    return NULL;
+}

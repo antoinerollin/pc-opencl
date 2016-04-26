@@ -1,0 +1,66 @@
+/**
+ * Concurrent Systems - TD1
+ * @authors: BUISSON Kévin & ROLLIN Antoine
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include "project.h"
+#include "matrix.h"
+#include "utils.h"
+#include <time.h>
+
+/**
+ * Matrice are so hot ! <3
+ */
+int main (void) {
+
+    // Create matrices
+    Matrix* matrix_one = create_matrix(FACTOR);
+    Matrix* matrix_two = create_matrix(FACTOR);
+
+    // Prints the configurations
+    print_infos(matrix_one->size);
+
+    // Heat the center
+    apply_heat_center(matrix_one, TEMP_HOT);
+
+    // Print matrix
+    print_iteration(PRINT_INIT);
+    print_matrix(matrix_one);
+
+    // Init time
+    double clock_i = clock();
+
+    // Process iterations
+    for (int k = 1; k <= ITERATION_LIMIT; k++)
+    {
+        // Process the iteration
+        if (DISPLAY)
+            print_iteration(k);
+        process(matrix_one, matrix_two);
+
+        // Heat the center
+        apply_heat_center(matrix_one, TEMP_HOT);
+
+        // Prints iteration result
+        if (DISPLAY)
+            print_matrix(matrix_one);
+
+    }
+
+    // Prints total time
+    printf("\nTotal time = %f s\n", (clock() - clock_i)/CLOCKS_PER_SEC);
+
+    // Prints the final matrix
+    print_iteration(PRINT_RESULT);
+    print_matrix(matrix_one);
+
+    // Free matrix
+    free_matrix(matrix_one);
+    free_matrix(matrix_two);
+
+	return EXIT_SUCCESS;
+}
+

@@ -1,0 +1,11 @@
+#ifndef BAR_H
+#define BAR_H
+
+#include <unistd.h>
+
+typedef struct Barrier {
+  	int count;
+	int limit;  
+} Barrier;
+
+#endif // BAR_H

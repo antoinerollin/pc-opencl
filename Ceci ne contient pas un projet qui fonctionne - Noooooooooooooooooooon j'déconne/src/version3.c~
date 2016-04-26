@@ -1,0 +1,183 @@
+#include "version3.h"
+
+// POSIX Barriers
+Barrier * barr_a;
+Barrier * barr_b;
+
+/**
+ * Divides in regions and initializes barrier, then launch process.
+ */
+void main_v3(int n_iter, Matrix * matrix_src, Matrix * matrix_dst, int n_threads)
+{
+    // Compute regions for threads
+    Region ** regions = generate_regions(n_threads, matrix_src->size);
+
+    if (regions == NULL) {
+        printf(">> [version3.c] main_v3: inefficient malloc causing abortion... (regions)\n");
+        return;
+    }
+
+    // Init barrier : left when n_threads are waiting
+    barr_a = my_barr_init(n_threads);
+    barr_b = my_barr_init(n_threads);
+
+    // Checking ineficient mallocs
+    if (barr_a == NULL || barr_b == NULL){
+        printf(">> [version3.c] main_v3: inefficient malloc causing abortion... (barriers)\n");
+        return;
+    }
+
+    // Launch process
+    process_v3(matrix_src, matrix_dst, regions, n_threads, n_iter);
+
+    // Destroying barriers
+    my_barr_destroy(barr_a);
+    my_barr_destroy(barr_b);
+
+    // Free regions
+    free_regions_list(*regions);
+}
+
+/**
+ * Launch threads and manage the matrix heat.
+ */
+void process_v3(Matrix* matrix_src, Matrix* matrix_dst, Region ** r_list, int n_threads, int n_iter)
+{
+    // Creating n_threads references
+    pthread_t t[n_threads];
+
+    Argument ** args = malloc(n_threads * sizeof(Argument *));
+
+    if (args == NULL) {
+        printf(">> [version3.c] process_v3: inefficient malloc causing abortion...\n");
+        return;
+    }
+
+    // Launch n_threads threads
+    // One threads per region
+    for (int i = 0; i < n_threads; i++) {
+        // Creating Argument_v3
+        Argument * a = create_arg(matrix_src, matrix_dst, r_list[i], n_iter);
+
+        if (a == NULL) {
+            printf(">> [version3.c] process_v3: inefficient malloc causing abortion...\n");
+            return;
+        }
+
+        // Saving Argument_v3
+        // (else the next Argument will have the same address
+        // and erase the previous Argument values)
+        args[i] = a;
+
+        // Launching thread
+        pthread_create(&t[i], NULL, thread_func_v3, &args[i]);
+    }
+
+    // Ending threads
+    for (int i = 0; i < n_threads; ++i)
+        pthread_join(t[i], NULL);
+
+    // Free Arguments
+    free(*args);
+}
+
+/**
+ * Apply one iteration process on a region of the destination matrix according to
+ * the source matrix and the direction (horizontally or vertically).
+ */
+void directed_process_v3(Matrix* matrix_src, Matrix* matrix_dst, int direction, Region * region)
+{
+
+    int variant = (direction == VERTICAL) ? region->x : region->y;
+
+    // Process each line OR column of the region
+    for(int i = variant; i < (variant + region->width); i++)
+        compute_line_or_column_at_index_v3(matrix_src, matrix_dst, direction, i, region);
+
+}
+
+/**
+ *  Process the index-ieme line/column (direction) on a region.
+ */
+void compute_line_or_column_at_index_v3(Matrix* matrix_src, Matrix* matrix_dst, int direction, int index, Region * region)
+{
+    // Cells required for Taylor formula
+    float aim, adj1, adj2;
+
+    int variant2 = (direction == VERTICAL) ? region->y : region->x;
+
+    // For each cell of the line/column
+    for (int mutant = variant2; mutant < (variant2 + region->width); mutant++) {
+        if (direction == VERTICAL) { // COLUMN
+            // Previous aimed cell value
+            aim = MCELL(matrix_src, index, mutant);
+
+            // Neighbors values
+            adj1 = (mutant >= 1) ? MCELL(matrix_src, index, (mutant-1)) : TEMP_COLD;
+            adj2 = (mutant < matrix_dst->size-1) ? MCELL(matrix_src, index, (mutant+1)) : TEMP_COLD;
+
+            // Computes the new value
+            MCELL(matrix_dst, index, mutant) = apply_taylor(aim, adj1, adj2);
+
+        } else if (direction == HORIZONTAL) { // LINE
+            // Previous aimed cell value
+            aim = MCELL(matrix_src, mutant, index);
+
+            // Neighbors values
+            adj1 = (mutant >= 1) ? MCELL(matrix_src, (mutant-1), index) : TEMP_COLD;
+            adj2 = (mutant < matrix_dst->size-1) ? MCELL(matrix_src, (mutant+1), index) : TEMP_COLD;
+
+            // Computes the new value
+            MCELL(matrix_dst, mutant, index) = apply_taylor(aim, adj1, adj2);
+        }
+    }
+}
+
+/**
+ * Thread function : process vertically then horizontally  in a region of the matrix
+ */
+void * thread_func_v3 (void * p)
+{
+    // Getting Argument_v3 structure
+    Argument * a = *(Argument **) p;
+
+    // Process iterations
+    for (int k = 1; k <= a->n_iter; k++) {
+
+        acquire_v3(VERTICAL);
+
+        // Apply the process vertically
+        directed_process_v3(a->m1, a->m2, VERTICAL, a->reg);
+
+        release_v3(VERTICAL);
+
+
+        acquire_v3(HORIZONTAL);
+
+        // Apply the process horizontally
+        directed_process_v3(a->m2, a->m1, HORIZONTAL, a->reg);
+
+        // Heat matrix
+        apply_heat_center_region(a->m1, a->reg, TEMP_HOT);
+
+        release_v3(HORIZONTAL);
+    }
+
+    // End of the thread
+
+    return NULL;
+}
+
+void acquire_v3(int direction)
+{
+    // Nothing
+}
+void release_v3(int direction)
+{
+    if (direction == VERTICAL)
+        // Unlock others threads when everyone has done the vertical process
+        my_barr_wait(barr_a);
+    else if (direction == HORIZONTAL)
+        // Unlock others threads when everyone has done the horizontal process
+        my_barr_wait(barr_b);
+}

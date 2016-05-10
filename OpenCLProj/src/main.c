@@ -208,8 +208,7 @@ int process_version(Matrix * m1, Matrix * m2)
         break;
 
     case VERSION_4:
-        printf("Not supported yet.\n");
-        statement = ERROR;
+        main_v4(cf_iteration_number,m1,m2,current_thread_number);
         break;
 
     case VERSION_5:

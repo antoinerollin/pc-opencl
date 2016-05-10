@@ -135,11 +135,11 @@ void print_version_name()
         break;
 
     case VERSION_4:
-        printf("\n|| OPEN-CL CPU [4]");
+        printf("\n|| OPEN-CL [4]");
         break;
 
     case VERSION_5:
-        printf("\n|| OPEN-CL GPU [5]");
+        printf("\n|| OPEN-CL [5]");
         break;
 
     default:

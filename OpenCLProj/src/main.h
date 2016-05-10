@@ -11,6 +11,7 @@
 #include "version1.h"
 #include "version2.h"
 #include "version3.h"
+#include "version4.h"
 
 /** Launch the process for each version */
 void launch_versions();

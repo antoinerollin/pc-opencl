@@ -1,7 +1,26 @@
 # ROLLIN Antoine - PC - Rendu 4 - Version 0123 
+all: bin/project intel
 
 CC = gcc -std=gnu99 -O2
-OBJ = bin/main.o bin/project.o bin/matrix.o bin/utils.o bin/version.o bin/version0.o bin/version1.o bin/version2.o bin/version3.o bin/region.o bin/argument.o bin/condbarrier.o bin/sembarrier.o
+OBJ = bin/main.o bin/project.o bin/matrix.o bin/utils.o bin/version.o bin/version0.o bin/version1.o bin/version2.o bin/version3.o bin/version4.o bin/region.o bin/argument.o bin/condbarrier.o bin/sembarrier.o
+
+is_64=$(shell s=`uname -m`; if (echo $$s | grep x86_64 > /dev/null); then echo 1; fi)
+
+CFLAGS=-Wall -W -O2
+
+# Intel
+PATH_TO_INTEL_INC=/usr/include/
+ifeq ($(is_64), 1)
+PATH_TO_INTEL_LIB=/usr/lib64/
+endif
+
+EXE_NAME=$(patsubst %.cpp,%,$(wildcard *.cpp))
+
+intel:  $(join $(EXE_NAME),.intel)
+
+%.intel:%.cpp
+	g++ $(CFLAGS) -I$(PATH_TO_INTEL_INC) -L$(PATH_TO_INTEL_LIB) -Wl,-rpath,$(PATH_TO_INTEL_LIB) -o $@ $< -lOpenCL
+
 
 bin/project: $(OBJ)
 	@echo " "
@@ -16,7 +35,7 @@ bin/project: $(OBJ)
 	@echo "The progam is ready to be used"
 	@echo "------------------------------"
 	
-bin/main.o: src/main.c src/utils.h src/version0.h src/version1.h src/matrix.h
+bin/main.o: src/main.c src/utils.h src/version0.h src/version1.h src/version2.h src/version3.h src/version4.h src/matrix.h
 	@echo "----------------"
 	@echo "    MAKEFILE"
 	@echo "----------------"
@@ -75,8 +94,13 @@ bin/version3.o: src/version3.c src/version3.h src/matrix.h src/project.h src/reg
 	$(CC) -o bin/version3.o -c src/version3.c
 	@echo "-> version3.o"
 
+bin/version4.o: src/version4.c src/version4.h src/matrix.h src/project.h src/region.h src/argument.h src/version.h
+	$(CC) -o bin/version4.o -c src/version4.c
+	@echo "-> version4.o"
+
 clean:
 	rm -f ./bin/*.o
+	rm -f ./bin/*.intel
 	@echo "Folder cleaned up from object files"
 	@echo ""
 

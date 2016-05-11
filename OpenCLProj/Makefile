@@ -1,7 +1,7 @@
 # ROLLIN Antoine - PC - Rendu 4 - Version 0123 
-all: bin/project intel
+all: bin/project
 
-CC = gcc -std=gnu99 -O2
+CC = gcc -std=gnu99 -O2 
 OBJ = bin/main.o bin/project.o bin/matrix.o bin/utils.o bin/version.o bin/version0.o bin/version1.o bin/version2.o bin/version3.o bin/version4.o bin/region.o bin/argument.o bin/condbarrier.o bin/sembarrier.o
 
 is_64=$(shell s=`uname -m`; if (echo $$s | grep x86_64 > /dev/null); then echo 1; fi)
@@ -25,7 +25,7 @@ intel:  $(join $(EXE_NAME),.intel)
 bin/project: $(OBJ)
 	@echo " "
 	@echo "Building executable..."
-	$(CC) -o bin/project $(OBJ) -lm -lpthread
+	$(CC) -o bin/project $(OBJ) -lm -lpthread  -I$(PATH_TO_INTEL_INC) -L$(PATH_TO_INTEL_LIB) -Wl,-rpath,$(PATH_TO_INTEL_LIB)  -lOpenCL
 	@echo "==> project"
 	@echo " "
 	@echo "Cleaning object files..."

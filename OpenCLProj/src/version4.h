@@ -6,6 +6,12 @@
 #include "region.h"
 #include "argument.h"
 #include "version.h"
+#ifdef __APPLE__
+#include <OpenCL/opencl.h>
+#else
+#include <CL/cl.h>	
+#endif
+ 
 
 #include <pthread.h>
 #include <stdlib.h>
